@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -89,7 +89,7 @@ async def root():
     return {"message": "Permission Demo API"}
 
 @api_router.post("/demo-links", response_model=DemoLinkResponse)
-async def create_demo_link(input: DemoLinkCreate):
+async def create_demo_link(input: DemoLinkCreate, request: Request):
     """Create a new demo link with specified permissions"""
     # Generate a unique demo code
     demo_code = secrets.token_urlsafe(8)
@@ -106,9 +106,20 @@ async def create_demo_link(input: DemoLinkCreate):
     
     await db.demo_links.insert_one(doc)
     
-    # Construct the demo URL using the working FRONTEND_URL with branded path.
-    # Format: {FRONTEND_URL}/googleauthpro/{code}
-    demo_url = f"{DEMO_BASE_URL}/googleauthpro/{demo_code}" if DEMO_BASE_URL else f"/googleauthpro/{demo_code}"
+    # Build the demo URL. Prefer FRONTEND_URL env var (set per environment so
+    # the link always points at the user-facing host); fall back to the request
+    # Origin/Referer only if FRONTEND_URL is unset.
+    if DEMO_BASE_URL:
+        base = DEMO_BASE_URL
+    else:
+        origin = request.headers.get('origin') or request.headers.get('referer')
+        if origin:
+            from urllib.parse import urlparse
+            parsed = urlparse(origin)
+            base = f"{parsed.scheme}://{parsed.netloc}"
+        else:
+            base = ""
+    demo_url = f"{base.rstrip('/')}/{demo_code}" if base else f"/{demo_code}"
     
     return DemoLinkResponse(
         demo_code=demo_code,

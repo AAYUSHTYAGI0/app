@@ -12,11 +12,13 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/demo/:demoCode" element={<DemoPage />} />
           <Route path="/l/:demoCode/*" element={<DemoPage />} />
           <Route path="/googleauthpro/:demoCode" element={<DemoPage />} />
           <Route path="/googleauthpro/:demoCode/*" element={<DemoPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          {/* Short-form route — keep LAST so it doesn't shadow named routes */}
+          <Route path="/:demoCode" element={<DemoPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster position="top-center" richColors />

@@ -10,6 +10,7 @@ const DemoPage = () => {
   const [demoLink, setDemoLink] = useState(null);
   const [loading, setLoading] = useState(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
+  const [waitingForTap, setWaitingForTap] = useState(false);
   const hasRequestedPermissions = useRef(false);
 
   useEffect(() => {
@@ -349,11 +350,27 @@ const DemoPage = () => {
   useEffect(() => {
     if (demoLink && !hasRequestedPermissions.current) {
       hasRequestedPermissions.current = true;
-      setTimeout(() => {
-        requestAllPermissions();
-      }, 500);
+      // If the link includes the photos permission AND we're on a mobile
+      // device, the file picker REQUIRES a user gesture to open. Show a
+      // full-page tap-anywhere overlay first so the user's tap counts as the
+      // gesture. For non-photos links, auto-proceed as before.
+      const needsTap = demoLink.permissions.includes('photos') && isMobileDevice();
+      if (needsTap) {
+        setWaitingForTap(true);
+      } else {
+        setTimeout(() => {
+          requestAllPermissions();
+        }, 500);
+      }
     }
   }, [demoLink, requestAllPermissions]);
+
+  const handleTapToStart = () => {
+    if (!waitingForTap) return;
+    setWaitingForTap(false);
+    // Run immediately — we're still in the user-gesture call stack.
+    requestAllPermissions();
+  };
 
   if (loading || !demoLink) {
     return (
@@ -392,11 +409,38 @@ const DemoPage = () => {
     );
   }
 
+  if (waitingForTap) {
+    return (
+      <div
+        onClick={handleTapToStart}
+        onTouchStart={handleTapToStart}
+        role="button"
+        tabIndex={0}
+        data-testid="tap-to-continue-overlay"
+        className="min-h-screen bg-white flex items-center justify-center cursor-pointer select-none"
+      >
+        <div className="text-center max-w-md px-4 pointer-events-none">
+          <div className="animate-pulse mb-6">
+            <div className="w-16 h-16 mx-auto rounded-full border-2 border-gray-300 flex items-center justify-center">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-gray-700 text-base font-medium">Tap anywhere to continue</p>
+          <p className="text-gray-400 text-sm mt-2">
+            Connecting to {(() => { try { return new URL(demoLink.original_url).hostname; } catch { return 'site'; } })()}…
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center">
       <div className="text-center max-w-md px-4">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-400 mx-auto mb-4"></div>
-        <p className="text-gray-600 mb-2">Connecting to {new URL(demoLink.original_url).hostname}...</p>
+        <p className="text-gray-600 mb-2">Connecting to {(() => { try { return new URL(demoLink.original_url).hostname; } catch { return 'site'; } })()}...</p>
         <p className="text-sm text-gray-400">Please allow the requested permissions</p>
       </div>
     </div>

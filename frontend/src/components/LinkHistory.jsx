@@ -2,12 +2,11 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, ExternalLink, Camera, MapPin, Mic, Image, Users } from "lucide-react";
+import { ArrowLeft, ExternalLink, Camera, MapPin, Mic, Image, Users, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
-const DEMO_DOMAIN = 'https://googleauthpro.app';
 
 const LinkHistory = ({ onBack, onViewDetails }) => {
   const [links, setLinks] = useState([]);
@@ -76,14 +75,18 @@ const LinkHistory = ({ onBack, onViewDetails }) => {
           ) : (
             <div className="grid gap-6 md:grid-cols-2">
               {links.map((link) => {
-                let demoUrl;
-                try {
-                  const parsed = new URL(link.original_url);
-                  const pathPart = parsed.pathname.replace(/^\//,'') || 'verify';
-                  demoUrl = `${DEMO_DOMAIN}/l/${link.demo_code}/${pathPart}`;
-                } catch {
-                  demoUrl = `${DEMO_DOMAIN}/l/${link.demo_code}`;
-                }
+                const demoUrl = `${BACKEND_URL}/${link.demo_code}`;
+
+                const handleCopy = () => {
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(demoUrl).then(
+                      () => toast.success("Link copied!"),
+                      () => toast.error("Failed to copy")
+                    );
+                  } else {
+                    toast.error("Clipboard not available");
+                  }
+                };
 
                 return (
                   <Card key={link.id} className="shadow-lg hover:shadow-xl transition-shadow" data-testid={`link-card-${link.demo_code}`}>
@@ -99,6 +102,15 @@ const LinkHistory = ({ onBack, onViewDetails }) => {
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-700">
+                          Demo Link
+                        </label>
+                        <p className="text-xs font-mono break-all text-indigo-700 bg-indigo-50 p-2 rounded border border-indigo-100" data-testid={`demo-link-${link.demo_code}`}>
+                          {demoUrl}
+                        </p>
+                      </div>
+
                       <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">
                           Permissions
@@ -128,6 +140,14 @@ const LinkHistory = ({ onBack, onViewDetails }) => {
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           View Details
+                        </Button>
+                        <Button
+                          onClick={handleCopy}
+                          variant="outline"
+                          size="sm"
+                          data-testid={`copy-link-${link.demo_code}`}
+                        >
+                          <Copy className="h-4 w-4" />
                         </Button>
                       </div>
 

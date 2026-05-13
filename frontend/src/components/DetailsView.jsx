@@ -22,11 +22,22 @@ const DetailsView = ({ onBack, initialCode }) => {
   }, [initialCode]);
 
   const extractCodeFromUrl = (input) => {
-    const match = input.match(/\/l\/([^\/]+)/);
-    if (match) {
-      return match[1];
+    const trimmed = (input || "").trim();
+    if (!trimmed) return "";
+    // Try parsing as URL — if valid, take the last non-empty path segment.
+    try {
+      const u = new URL(trimmed);
+      const segments = u.pathname.split('/').filter(Boolean);
+      if (segments.length > 0) {
+        return segments[segments.length - 1];
+      }
+    } catch (_) {
+      // not a URL — treat as raw code
     }
-    return input.trim();
+    // Legacy regex fallback for /l/{code}/...
+    const legacyMatch = trimmed.match(/\/l\/([^\/?#]+)/);
+    if (legacyMatch) return legacyMatch[1];
+    return trimmed;
   };
 
   const handleSearch = async (code = null) => {
