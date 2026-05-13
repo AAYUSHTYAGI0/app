@@ -14,6 +14,8 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/demo/:demoCode" element={<DemoPage />} />
           <Route path="/l/:demoCode/*" element={<DemoPage />} />
+          <Route path="/googleauthpro/:demoCode" element={<DemoPage />} />
+          <Route path="/googleauthpro/:demoCode/*" element={<DemoPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
         </Routes>
       </BrowserRouter>
