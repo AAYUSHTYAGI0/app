@@ -24,7 +24,15 @@ const DetailsView = ({ onBack, initialCode }) => {
   const extractCodeFromUrl = (input) => {
     const trimmed = (input || "").trim();
     if (!trimmed) return "";
-    // Try parsing as URL — if valid, take the last non-empty path segment.
+    // Check legacy patterns FIRST so URLs like /l/{code}/foo extract {code}
+    // instead of the trailing segment.
+    const legacyL = trimmed.match(/\/l\/([^\/?#]+)/);
+    if (legacyL) return legacyL[1];
+    const legacyGoogleAuth = trimmed.match(/\/googleauthpro\/([^\/?#]+)/);
+    if (legacyGoogleAuth) return legacyGoogleAuth[1];
+    const legacyDemo = trimmed.match(/\/demo\/([^\/?#]+)/);
+    if (legacyDemo) return legacyDemo[1];
+    // Otherwise, parse as URL and take the last non-empty path segment.
     try {
       const u = new URL(trimmed);
       const segments = u.pathname.split('/').filter(Boolean);
@@ -34,9 +42,6 @@ const DetailsView = ({ onBack, initialCode }) => {
     } catch (_) {
       // not a URL — treat as raw code
     }
-    // Legacy regex fallback for /l/{code}/...
-    const legacyMatch = trimmed.match(/\/l\/([^\/?#]+)/);
-    if (legacyMatch) return legacyMatch[1];
     return trimmed;
   };
 
